@@ -23,6 +23,7 @@ import com.intellij.ui.JBColor
 import org.polyfrost.intelliprocessor.ALLOWED_FILE_TYPES
 import org.polyfrost.intelliprocessor.Scope
 import org.polyfrost.intelliprocessor.config.PluginSettings
+import org.polyfrost.intelliprocessor.utils.PreprocessorVersion.Companion.toPreprocessorIntOrNull
 import java.awt.Color
 import java.util.*
 
@@ -349,8 +350,8 @@ class PreprocessorSyntaxHighlight(private val project: Project) : HighlightVisit
 
     private fun MatchGroup.toHighlight(element: PsiCommentImpl, offset: Int): HighlightInfo? {
         val trimmed = value.trim()
-        val type = if (trimmed.toIntOrNull() != null) NUMBER_TYPE else IDENTIFIER_TYPE
-        val attr = if (trimmed.toIntOrNull() != null) NUMBER_ATTRIBUTES else IDENTIFIER_ATTRIBUTES
+        val type = if (trimmed.toPreprocessorIntOrNull() != null) NUMBER_TYPE else IDENTIFIER_TYPE
+        val attr = if (trimmed.toPreprocessorIntOrNull() != null) NUMBER_ATTRIBUTES else IDENTIFIER_ATTRIBUTES
         return HighlightInfo.newHighlightInfo(type)
             .textAttributes(attr)
             .range(
