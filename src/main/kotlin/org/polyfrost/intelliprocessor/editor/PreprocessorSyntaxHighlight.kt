@@ -82,6 +82,7 @@ class PreprocessorSyntaxHighlight(private val project: Project) : HighlightVisit
     private val doIdentMatchWarn get() = PluginSettings.instance.inspectionHighlightCommentsNotMatchingIfIndents
     private val colorNestedIndents get() = PluginSettings.instance.colorNestedPreprocessorComments
     private val colorNestedIndentsOnlyIfInLine get() = PluginSettings.instance.colorNestedPreprocessorCommentsOnlyOnSameIndent
+    private val doSpacingWarn get() = PluginSettings.instance.inspectionRequireJavaKotlinSpacingInConditions
 
     override fun suitableForFile(file: PsiFile): Boolean {
         return file.fileType.name.uppercase(Locale.ROOT) in ALLOWED_FILE_TYPES
@@ -210,6 +211,8 @@ class PreprocessorSyntaxHighlight(private val project: Project) : HighlightVisit
 
             EXPR_PATTERN.matchEntire(trimmed)?.let { m ->
                 m.groups[1]?.toHighlight(element, position)?.let(holder::add)
+                if (doSpacingWarn && !trimmed.contains(" ${m.groups[2]?.value} "))
+                    warn(element, "Operator \"${m.groups[2]?.value}\" should be surrounded by spaces for clarity & consistency with Java / Kotlin styling.")
                 m.groups[3]?.toHighlight(element, position)?.let(holder::add)
             } ?: run {
                 IDENTIFIER_PATTERN.matchEntire(trimmed)?.let { idMatch ->

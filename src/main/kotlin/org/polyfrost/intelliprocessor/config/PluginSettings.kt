@@ -18,6 +18,7 @@ class PluginSettings : PersistentStateComponent<PluginSettings> {
     var colorNestedPreprocessorComments = true
     var colorNestedPreprocessorCommentsOnlyOnSameIndent = false
     var inspectionHighlightContentNotMatchingIfIndents = true
+    var inspectionRequireJavaKotlinSpacingInConditions = false
 
     override fun getState(): PluginSettings = this
 
@@ -31,6 +32,7 @@ class PluginSettings : PersistentStateComponent<PluginSettings> {
         this.colorNestedPreprocessorComments = state.colorNestedPreprocessorComments
         this.colorNestedPreprocessorCommentsOnlyOnSameIndent = state.colorNestedPreprocessorCommentsOnlyOnSameIndent
         this.inspectionHighlightContentNotMatchingIfIndents = state.inspectionHighlightContentNotMatchingIfIndents
+        this.inspectionRequireJavaKotlinSpacingInConditions = state.inspectionRequireJavaKotlinSpacingInConditions
     }
 
     companion object {

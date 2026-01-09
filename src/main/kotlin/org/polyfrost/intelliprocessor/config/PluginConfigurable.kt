@@ -20,6 +20,7 @@ class PluginConfigurable : Configurable {
     private lateinit var colorNestedPreprocessorCommentsCheckbox: JCheckBox
     private lateinit var colorNestedPreprocessorCommentsOnlyOnSameIndentCheckbox: JCheckBox
     private lateinit var inspectionHighlightContentNotMatchingIfIndentsCheckbox: JCheckBox
+    private lateinit var inspectionRequireJavaKotlinSpacingInConditionsCheckbox: JCheckBox
 
     override fun getDisplayName(): String = "IntelliProcessor"
 
@@ -69,6 +70,9 @@ class PluginConfigurable : Configurable {
                 .tooltip("Highlights lines of code inside preprocessor blocks that are indented less than the corresponding \"if\" directive.\n" +
                     "This does break preprocessing.")
 
+        inspectionRequireJavaKotlinSpacingInConditionsCheckbox = JCheckBox("Highlight non-standard Java / Kotlin spacing around operators in preprocessor conditions")
+            .tooltip("Highlights improper use of spaces around operators in preprocessor conditions for improved readability.")
+
         // Arrange components
 
         fun titledBlock(str: String, block: JPanel.() -> Unit): JPanel = JPanel().apply {
@@ -93,6 +97,7 @@ class PluginConfigurable : Configurable {
                 add(inspectionHighlightContentNotMatchingIfIndentsCheckbox)
                 add(colorNestedPreprocessorCommentsCheckbox)
                 add(colorNestedPreprocessorCommentsOnlyOnSameIndentCheckbox)
+                add(inspectionRequireJavaKotlinSpacingInConditionsCheckbox)
             })
 
             add(titledBlock("Jump To Pre-Processed File Action") {
@@ -122,6 +127,7 @@ class PluginConfigurable : Configurable {
                 || colorNestedPreprocessorCommentsCheckbox.isSelected != PluginSettings.instance.colorNestedPreprocessorComments
                 || colorNestedPreprocessorCommentsOnlyOnSameIndentCheckbox.isSelected != PluginSettings.instance.colorNestedPreprocessorCommentsOnlyOnSameIndent
                 || inspectionHighlightContentNotMatchingIfIndentsCheckbox.isSelected != PluginSettings.instance.inspectionHighlightContentNotMatchingIfIndents
+                || inspectionRequireJavaKotlinSpacingInConditionsCheckbox.isSelected != PluginSettings.instance.inspectionRequireJavaKotlinSpacingInConditions
 
     override fun apply() {
         PluginSettings.instance.foldAllBlocksByDefault = foldAllBlocksByDefaultCheckbox.isSelected
@@ -133,6 +139,7 @@ class PluginConfigurable : Configurable {
         PluginSettings.instance.colorNestedPreprocessorComments = colorNestedPreprocessorCommentsCheckbox.isSelected
         PluginSettings.instance.colorNestedPreprocessorCommentsOnlyOnSameIndent = colorNestedPreprocessorCommentsOnlyOnSameIndentCheckbox.isSelected
         PluginSettings.instance.inspectionHighlightContentNotMatchingIfIndents = inspectionHighlightContentNotMatchingIfIndentsCheckbox.isSelected
+        PluginSettings.instance.inspectionRequireJavaKotlinSpacingInConditions = inspectionRequireJavaKotlinSpacingInConditionsCheckbox.isSelected
     }
 
     override fun reset() {
@@ -145,5 +152,6 @@ class PluginConfigurable : Configurable {
         colorNestedPreprocessorCommentsCheckbox.isSelected = PluginSettings.instance.colorNestedPreprocessorComments
         colorNestedPreprocessorCommentsOnlyOnSameIndentCheckbox.isSelected = PluginSettings.instance.colorNestedPreprocessorCommentsOnlyOnSameIndent
         inspectionHighlightContentNotMatchingIfIndentsCheckbox.isSelected = PluginSettings.instance.inspectionHighlightContentNotMatchingIfIndents
+        inspectionRequireJavaKotlinSpacingInConditionsCheckbox.isSelected = PluginSettings.instance.inspectionRequireJavaKotlinSpacingInConditions
     }
 }
