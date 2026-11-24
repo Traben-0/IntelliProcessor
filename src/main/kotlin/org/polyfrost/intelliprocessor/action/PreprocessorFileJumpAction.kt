@@ -9,6 +9,8 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
@@ -18,14 +20,6 @@ import java.nio.file.Path
 import kotlin.io.path.relativeToOrNull
 
 open class PreprocessorFileJumpAction : DumbAwareAction() {
-
-    private companion object {
-        private const val GROUP_ID = "Jump Failure"
-
-        private fun warning(project: Project, content: String) {
-            warning(project, GROUP_ID, content)
-        }
-    }
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
@@ -64,8 +58,11 @@ open class PreprocessorFileJumpAction : DumbAwareAction() {
         // For if the caret is inside a preprocessor conditional block, test each target version against the conditions
         val foundConditionContext = testTargetsAgainstPreprocessorConditions(currentPsiFile, editor, targets)
 
+        // The dialog is modeless, so close any dialog still open from a previous invocation, its caret context is stale
+        openDialog?.close(DialogWrapper.CANCEL_EXIT_CODE)
+
         SourceSetFileDialog(project, targets, foundConditionContext) { selected ->
-            val virtualFile = VfsUtil.findFile(rootDirectory.resolve(selected.toRelativePath()), true)
+            val virtualFile = VfsUtil.findFile(selected.absolutePath, true)
             if (virtualFile == null) {
                 warning(
                     project,
@@ -88,6 +85,11 @@ open class PreprocessorFileJumpAction : DumbAwareAction() {
                 newEditor.editor.scrollingModel.scrollToCaret(ScrollType.CENTER)
             } else {
                 warning(project, "Could not set cursor for non-text file")
+            }
+        }.also { dialog ->
+            openDialog = dialog
+            Disposer.register(dialog.disposable) {
+                if (openDialog === dialog) openDialog = null
             }
         }.show()
     }
@@ -159,4 +161,10 @@ open class PreprocessorFileJumpAction : DumbAwareAction() {
         return null
     }
 
+}
+
+private var openDialog: SourceSetFileDialog? = null
+
+private fun warning(project: Project, content: String) {
+    warning(project, "Jump Failure", content)
 }

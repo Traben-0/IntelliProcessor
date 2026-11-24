@@ -19,6 +19,7 @@ class PluginSettings : PersistentStateComponent<PluginSettings> {
     var colorNestedPreprocessorCommentsOnlyOnSameIndent = false
     var inspectionHighlightContentNotMatchingIfIndents = true
     var inspectionRequireJavaKotlinSpacingInConditions = false
+    var hideMissingFiles: Boolean = false
 
     override fun getState(): PluginSettings = this
 
@@ -33,6 +34,7 @@ class PluginSettings : PersistentStateComponent<PluginSettings> {
         this.colorNestedPreprocessorCommentsOnlyOnSameIndent = state.colorNestedPreprocessorCommentsOnlyOnSameIndent
         this.inspectionHighlightContentNotMatchingIfIndents = state.inspectionHighlightContentNotMatchingIfIndents
         this.inspectionRequireJavaKotlinSpacingInConditions = state.inspectionRequireJavaKotlinSpacingInConditions
+        this.hideMissingFiles = state.hideMissingFiles
     }
 
     companion object {

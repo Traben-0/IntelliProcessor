@@ -21,6 +21,7 @@ class PluginConfigurable : Configurable {
     private lateinit var colorNestedPreprocessorCommentsOnlyOnSameIndentCheckbox: JCheckBox
     private lateinit var inspectionHighlightContentNotMatchingIfIndentsCheckbox: JCheckBox
     private lateinit var inspectionRequireJavaKotlinSpacingInConditionsCheckbox: JCheckBox
+    private lateinit var hideMissingFilesCheckbox: JCheckBox
 
     override fun getDisplayName(): String = "IntelliProcessor"
 
@@ -73,6 +74,9 @@ class PluginConfigurable : Configurable {
         inspectionRequireJavaKotlinSpacingInConditionsCheckbox = JCheckBox("Highlight non-standard Java / Kotlin spacing around operators in preprocessor conditions")
             .tooltip("Highlights improper use of spaces around operators in preprocessor conditions for improved readability.")
 
+        hideMissingFilesCheckbox = JCheckBox("Hide missing files in the 'Jump To Pre-Processed File' dialog")
+            .tooltip("Hides files in the 'Jump To Pre-Processed File' dialog that do not exist in the project directory, which can help reduce clutter when navigating through preprocessed files.")
+
         // Arrange components
 
         fun titledBlock(str: String, block: JPanel.() -> Unit): JPanel = JPanel().apply {
@@ -102,6 +106,7 @@ class PluginConfigurable : Configurable {
 
             add(titledBlock("Jump To Pre-Processed File Action") {
                 add(hideUnmatchedVersionsCheckbox)
+                add(hideMissingFilesCheckbox)
             })
 
             add(titledBlock("Misc") {
@@ -128,6 +133,8 @@ class PluginConfigurable : Configurable {
                 || colorNestedPreprocessorCommentsOnlyOnSameIndentCheckbox.isSelected != PluginSettings.instance.colorNestedPreprocessorCommentsOnlyOnSameIndent
                 || inspectionHighlightContentNotMatchingIfIndentsCheckbox.isSelected != PluginSettings.instance.inspectionHighlightContentNotMatchingIfIndents
                 || inspectionRequireJavaKotlinSpacingInConditionsCheckbox.isSelected != PluginSettings.instance.inspectionRequireJavaKotlinSpacingInConditions
+                || hideMissingFilesCheckbox.isSelected != PluginSettings.instance.hideMissingFiles
+
 
     override fun apply() {
         PluginSettings.instance.foldAllBlocksByDefault = foldAllBlocksByDefaultCheckbox.isSelected
@@ -140,6 +147,7 @@ class PluginConfigurable : Configurable {
         PluginSettings.instance.colorNestedPreprocessorCommentsOnlyOnSameIndent = colorNestedPreprocessorCommentsOnlyOnSameIndentCheckbox.isSelected
         PluginSettings.instance.inspectionHighlightContentNotMatchingIfIndents = inspectionHighlightContentNotMatchingIfIndentsCheckbox.isSelected
         PluginSettings.instance.inspectionRequireJavaKotlinSpacingInConditions = inspectionRequireJavaKotlinSpacingInConditionsCheckbox.isSelected
+        PluginSettings.instance.hideMissingFiles = hideMissingFilesCheckbox.isSelected
     }
 
     override fun reset() {
@@ -153,5 +161,6 @@ class PluginConfigurable : Configurable {
         colorNestedPreprocessorCommentsOnlyOnSameIndentCheckbox.isSelected = PluginSettings.instance.colorNestedPreprocessorCommentsOnlyOnSameIndent
         inspectionHighlightContentNotMatchingIfIndentsCheckbox.isSelected = PluginSettings.instance.inspectionHighlightContentNotMatchingIfIndents
         inspectionRequireJavaKotlinSpacingInConditionsCheckbox.isSelected = PluginSettings.instance.inspectionRequireJavaKotlinSpacingInConditions
+        hideMissingFilesCheckbox.isSelected = PluginSettings.instance.hideMissingFiles
     }
 }
