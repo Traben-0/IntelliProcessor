@@ -3,6 +3,9 @@
 # IntelliProcessor Changelog
 
 ## [Unreleased]
+
+### Updated
+
 - Various improvements to the "jump to preprocessed file" action, including:
   - Added an optional settings to hide missing files
   - Improved visibility for: missing files, override files, the main file.
