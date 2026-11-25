@@ -1,7 +1,11 @@
 package org.polyfrost.intelliprocessor.utils
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.util.Disposer
+import com.intellij.platform.ide.progress.withBackgroundProgress
 import com.intellij.ui.CollectionListModel
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.JBColor
@@ -9,15 +13,26 @@ import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.CheckBox
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBScrollPane
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.polyfrost.intelliprocessor.config.PluginSettings
 import java.awt.BorderLayout
-import java.awt.Component
+import java.awt.Color
 import java.awt.Font
 import java.awt.GridLayout
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.awt.event.WindowAdapter
+import java.awt.event.WindowEvent
+import javax.swing.BoxLayout
 import javax.swing.DefaultListCellRenderer
 import javax.swing.JComponent
 import javax.swing.JLabel
@@ -31,7 +46,7 @@ class SourceSetFileDialog(
     sourceFilesUnsorted: List<SourceSetFile>,
     private val hadConditions: Boolean,
     private val onFileChosen: (SourceSetFile) -> Unit,
-) : DialogWrapper(project) {
+) : DialogWrapper(project, true, IdeModalityType.MODELESS) {
 
     // Sort entries via int version as 1.8.9 will order before 1.12.2 otherwise
     private val sourceFiles = sourceFilesUnsorted.sortedBy { it.version.mc }
@@ -39,7 +54,7 @@ class SourceSetFileDialog(
     private val listModel = CollectionListModel(sourceFiles)
     private val list = JBList(listModel).apply {
         selectionMode = ListSelectionModel.SINGLE_SELECTION
-        cellRenderer = ListCellRenderer<Any> { list, value, index, isSelected, cellHasFocus ->
+        cellRenderer = ListCellRenderer { list, value, index, isSelected, cellHasFocus ->
             // Use DefaultListCellRenderer to get selection colors etc
             fun String.label() = DefaultListCellRenderer().getListCellRendererComponent(
                 list,
@@ -48,14 +63,26 @@ class SourceSetFileDialog(
                 isSelected,
                 cellHasFocus
             ).apply {
+                @Suppress("UseJBColor")
+                fun Color.fadeTo(other: Color, strength: Float) = Color(
+                    red + ((other.red - red) / strength).toInt(),
+                    green + ((other.green - green) / strength).toInt(),
+                    blue + ((other.blue - blue) / strength).toInt(),
+                )
+
                 // Further differentiate preprocessed generated files with font style
-                (value as? SourceSetFile)?.let {
-                    if (it.isNonGenerated) {
-                        font = font.deriveFont(Font.BOLD)
-                    }
-                    if (!it.metOpeningCondition) {
-                        foreground = JBColor.GRAY
-                    }
+                if (value.isNonGenerated) {
+                    font = font.deriveFont(Font.BOLD)
+                    foreground = if (value.isSrc) JBColor.GREEN else JBColor.CYAN
+                }
+                if (!value.exists || value.hasMixinErrors()) {
+                    foreground = JBColor.RED.fadeTo(foreground, 2f)
+                }
+                if (!value.metOpeningCondition) {
+                    foreground = foreground.fadeTo(JBColor.GRAY, 1.2f)
+                }
+                if (value.hasMixinErrors()) {
+                    background = JBColor.RED.fadeTo(background, 1.2f)
                 }
             }
 
@@ -65,7 +92,13 @@ class SourceSetFileDialog(
                     add(" ${stringParts[0]}".label())
                     add("| ${stringParts[1]}".label())
                 })
-                add("| ${stringParts[2]}".label())
+                if (value.exists) {
+                    add("| ${stringParts[2]}".label())
+                    if (value.hasMixinErrors()) toolTipText = "File has Mixin inspection errors, likely caused by version differences."
+                } else {
+                    add("| (File not found)".label())
+                    toolTipText = "File doesn't exist (but should), run a 'preprocessCode' or 'build' task to generate."
+                }
             }
         }
 
@@ -105,9 +138,49 @@ class SourceSetFileDialog(
         })
     }
 
+    private val messagePanel = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
+    private val errorLabel =
+        " - Some files contained mixin parsing issues (ones that do not fail builds), and have been highlighted RED.".messageLabel()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     init {
         title = "Select Preprocessed Source File"
         init()
+        Disposer.register(disposable) { scope.cancel() }
+
+        scope.launch {
+            withBackgroundProgress(project, "Finding Mixin Errors") {
+                // Check files concurrently, but limit how many inspection passes run at once
+                val permits = Semaphore(MAX_CONCURRENT_MIXIN_SCANS)
+                sourceFiles.filter { it.exists }.map { file ->
+                    launch {
+                        permits.withPermit { file.findMixinErrors(project, disposable) }
+                        if (file.hasMixinErrors()) {
+                            ApplicationManager.getApplication().invokeLater({ onMixinErrorsFound(file) }, ModalityState.any())
+                        }
+                    }
+                }.joinAll()
+            }
+        }
+
+        window.addWindowListener(object : WindowAdapter() {
+            override fun windowDeactivated(e: WindowEvent?) {
+                doCancelAction()
+            }
+        })
+    }
+
+    private fun onMixinErrorsFound(file: SourceSetFile) {
+        if (isDisposed) return
+        listModel.contentsChanged(file)
+        if (errorLabel.parent == null) {
+            messagePanel.add(errorLabel, 0)
+            messagePanel.isVisible = true
+            messagePanel.revalidate()
+            messagePanel.repaint()
+            // Grow the dialog if the new message doesn't fit
+            if (window.height < window.preferredSize.height) pack()
+        }
     }
 
     // Focus the search field when the dialog is first opened, streamlines keyboard navigation
@@ -124,46 +197,59 @@ class SourceSetFileDialog(
 
         panel.add(search, BorderLayout.NORTH)
         panel.add(JBScrollPane(list), BorderLayout.CENTER)
-        bottomPanelOrNull()?.let {
-            panel.add(it, BorderLayout.SOUTH)
-        }
+        panel.add(populateMessagePanel(), BorderLayout.SOUTH)
         filterList()
         return panel
     }
 
-    private fun bottomPanelOrNull(): JPanel? {
-        fun String.label(): JLabel = JLabel(this).apply {
-            font = font.deriveFont(Font.ITALIC, 12f)
-            foreground = JBColor.GRAY
-        }
+    private fun String.messageLabel(): JLabel = JLabel(this).apply {
+        font = font.deriveFont(Font.ITALIC, 12f)
+        foreground = JBColor.GRAY
+    }
 
-        val belowList = mutableListOf<Component>()
-        if (sourceFiles.any { it.subVersion != null && it.isNonGenerated }) {
-            belowList.add(" - (override) files are, non-generated, override files present in the versions/<version>/src/ directory.".label())
-        }
-        if (!hadConditions) {
-            belowList.add(" - No preprocessor conditions were found to apply at the caret position to test results with. Showing all.".label())
-        } else if (sourceFiles.any { !it.metOpeningCondition }) {
-            val hide = PluginSettings.instance.hideUnmatchedVersions
-            val hideText =
-                " - Results that do not meet the preprocessor conditions at the caret position have been hidden."
-            val showText =
-                " - Faded results are those that do not meet the preprocessor conditions at the caret position."
-            val label = (if (hide) hideText else showText).label()
-            belowList.add(label)
-            belowList.add(CheckBox("Hide results that do not meet preprocessor conditions at caret", hide).apply {
-                addActionListener {
-                    PluginSettings.modify { hideUnmatchedVersions = isSelected }
-                    label.text = if (isSelected) hideText else showText
-                    filterList()
-                }
-            })
-        }
-
-        return if (belowList.isEmpty()) null else JPanel(GridLayout(belowList.size, 1)).apply {
-            for (below in belowList) {
-                add(below, BorderLayout.NORTH)
+    private fun populateMessagePanel(): JPanel {
+        return messagePanel.apply {
+            if (sourceFiles.any { it.hasMixinErrors() }) {
+                add(errorLabel)
             }
+
+            if (sourceFiles.any { !it.isSrc && it.isNonGenerated }) {
+                add(" - (override src) files are, non-generated, override files present in the versions/<version>/src/ directory.".messageLabel())
+            }
+
+            if (sourceFiles.any { !it.exists }) {
+                val hide = PluginSettings.instance.hideMissingFiles
+                val label = " - Some files were not found in the expected directory, run a 'preprocessCode' or 'build' task to generate them.".messageLabel()
+                add(label)
+                add(CheckBox("Hide (File not found) results.", hide).apply {
+                    addActionListener {
+                        PluginSettings.modify { hideMissingFiles = isSelected }
+                        filterList()
+                    }
+                })
+            }
+
+            if (!hadConditions) {
+                add(" - No valid preprocessor conditions were found to apply at the caret position to test results with. Showing all.".messageLabel())
+            } else if (sourceFiles.any { !it.metOpeningCondition }) {
+                val hide = PluginSettings.instance.hideUnmatchedVersions
+                val hideText =
+                    " - Results that do not meet the preprocessor conditions at the caret position have been hidden."
+                val showText =
+                    " - Faded results are those that do not meet the preprocessor conditions at the caret position."
+                val label = (if (hide) hideText else showText).messageLabel()
+                add(label)
+                add(CheckBox("Hide results that do not meet preprocessor conditions at caret.", hide).apply {
+                    addActionListener {
+                        PluginSettings.modify { hideUnmatchedVersions = isSelected }
+                        label.text = if (isSelected) hideText else showText
+                        filterList()
+                    }
+                })
+            }
+
+            // Hidden until there is something to show, the mixin error message may still be added later
+            isVisible = componentCount > 0
         }
     }
 
@@ -172,7 +258,9 @@ class SourceSetFileDialog(
         listModel.replaceAll(sourceFiles.filter {
             it.toString().lowercase().contains(filter)
                     // Hide entries that do not meet the opening condition if the setting is enabled
-                    &&  (!PluginSettings.instance.hideUnmatchedVersions || it.metOpeningCondition)
+                    && (!PluginSettings.instance.hideUnmatchedVersions || it.metOpeningCondition)
+                    // Hide entries that do not exist if the setting is enabled
+                    && (!PluginSettings.instance.hideMissingFiles || it.exists)
         })
 
         if (listModel.isEmpty) {
@@ -187,6 +275,10 @@ class SourceSetFileDialog(
         val selected = list.selectedValue ?: return
         onFileChosen(selected)
         super.doOKAction()
+    }
+
+    private companion object {
+        const val MAX_CONCURRENT_MIXIN_SCANS = 4
     }
 
 }

@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Updated
+
+- Various improvements to the "jump to preprocessed file" action, including:
+  - Added an optional settings to hide missing files
+  - Improved visibility for: missing files, override files, the main file.
+  - Added checks that will highlight mixin errors present in the listed files.
+
 ## [4.2.0] - 2026-07-30
 
 ### Added
