@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-11-25
+
 ### Updated
 
 - Various improvements to the "jump to preprocessed file" action, including:
@@ -132,7 +134,8 @@
 
 - Updated IntelliJ version and refactored code
 
-[Unreleased]: https://github.com/Traben-0/IntelliProcessor/compare/v4.2.0...HEAD
+[Unreleased]: https://github.com/Traben-0/IntelliProcessor/compare/v4.3.0...HEAD
+[4.3.0]: https://github.com/Traben-0/IntelliProcessor/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/Traben-0/IntelliProcessor/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/Traben-0/IntelliProcessor/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/Traben-0/IntelliProcessor/compare/v3.1.0...v4.0.0
