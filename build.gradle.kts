@@ -127,6 +127,10 @@ intellijPlatformTesting {
 
 extensions.configure<KotlinJvmProjectExtension> {
     jvmToolchain(21)
+    compilerOptions {
+        // IntelliJ 2024.3 bundles Kotlin stdlib 2.0.x
+        apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
+    }
 }
 
 tasks {
